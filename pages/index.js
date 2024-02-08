@@ -1,11 +1,32 @@
-import Map from '../components/Map'
-import { Flex, Button, Image, Drawer, DrawerBody, DrawerFooter, DrawerHeader, DrawerOverlay, DrawerContent, DrawerCloseButton, useDisclosure, Spinner, Text } from '@chakra-ui/react'
+
+import {
+  Flex,
+  Button,
+  Image,
+  Drawer,
+  DrawerBody,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  useDisclosure,
+  Spinner,
+  Text,
+  FormControl,
+  FormLabel,
+  CheckboxGroup,
+  Stack,
+  Checkbox
+} from '@chakra-ui/react'
 import { useState, useEffect } from 'react';
+import Map from '@/components/Map'
+import ButtonOption from "@/components/ButtomOption"
 
 export default function Home() {
   const { isOpen, onOpen, onClose } = useDisclosure()
 
   const [activeOption, setActiveOption] = useState(0);
+  const [reportState, setReportState] = useState(0);
 
   const [isPointActive, setIsPointActive] = useState(false);
   const [markerPosition, setMarkerPosition] = useState(null);
@@ -16,7 +37,7 @@ export default function Home() {
   const [line1, setLine1] = useState({ x: null, y: null })
   const [line2, setLine2] = useState({ x: null, y: null })
 
-  const [data, setData] = useState([]);
+  const [data, setData] = useState({});
 
   const [isLoading, setIsLoading] = useState(false)
 
@@ -50,19 +71,19 @@ export default function Home() {
     reset()
   };
 
-  async function fetchData() {
+  async function fetchData(endpoint) {
     try {
       let response
       if (activeOption == 1) {
         setIsLoading(true)
-        response = await fetch(`/api/getRasterPoint?px=${point.x}&py=${point.y}`, {
+        response = await fetch(`/api/${endpoint}Point?px=${point.x}&py=${point.y}`, {
           method: 'GET',
         });
         setIsLoading(false)
       }
       else if (activeOption == 2) {
         setIsLoading(true)
-        response = await fetch(`/api/getRasterLine?l1x=${line1.x}&l1y=${line1.y}&l2x=${line2.x}&l2y=${line2.y}`, {
+        response = await fetch(`/api/${endpoint}Line?l1x=${line1.x}&l1y=${line1.y}&l2x=${line2.x}&l2y=${line2.y}`, {
           method: 'GET',
         });
         setIsLoading(false)
@@ -70,9 +91,13 @@ export default function Home() {
 
 
       if (response.ok) {
+        const responseDataObj = {}
+
         const result = await response.json();
-        setData(result);
-        console.log(result)
+        responseDataObj[endpoint] = result
+
+        setData(responseDataObj);
+        console.log(responseDataObj)
       } else {
         console.error('Erro na resposta da API:', response.status);
       }
@@ -86,13 +111,13 @@ export default function Home() {
     if (activeOption != 0) {
       if (activeOption == 1) {
         if (point && point.x != null && point.y != null) {
-          fetchData()
+          //fetchData()
           onOpen()
         }
       }
       if (activeOption == 2) {
         if (line1.x != null && line1.y != null && line2.x != null && line2.y != null) {
-          fetchData()
+          //fetchData()
           onOpen()
         }
       }
@@ -151,6 +176,20 @@ export default function Home() {
     return standardDeviation;
   }
 
+  const [selectedOptions, setSelectedOptions] = useState([]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log("Opções selecionadas:", selectedOptions);
+    setReportState(1)
+    if (selectedOptions.includes("shp")) {
+      fetchData("getSpecies")
+    }
+  };
+
+  const handleCheckboxChange = (newSelectedOptions) => {
+    setSelectedOptions(newSelectedOptions);
+  };
 
 
   return (
@@ -160,35 +199,65 @@ export default function Home() {
         <Flex
           display={isOpen ? "none" : "flex"}
           position="absolute"
-          bottom="0"
-          w="100vw"
-          h="120px"
+          bottom="0%"
+          left="30px"
+          h="fit-content"
           zIndex="5000"
-          style={{
-            background: 'linear-gradient(to top, rgba(22, 22, 22, 1), rgba(22,22, 22, 0))',
-          }}
           align={"end"}
           justify={"center"}
-          gap={"50px"}
+          direction="column"
         >
-          <Button isDisabled={activeOption == 2 && "false"} isActive={activeOption == 1 && "true"} w="140px" h="140px" mb={5} colorScheme='green' borderRadius={15} onClick={() => setActiveOption(1)}><Image h="50%" src='/images/point.png' /></Button>
-          <Button isDisabled={activeOption == 1 && "false"} isActive={activeOption == 2 && "true"} w="140px" h="140px" mb={5} colorScheme='green' borderRadius={15} onClick={() => setActiveOption(2)}><Image h="60%" src='/images/line.png' /></Button>
-          <Button w="140px" h="140px" mb={5} colorScheme='green' borderRadius={15} fontSize={25} onClick={() => reset()}>Reset</Button>
+
+          <ButtonOption onClick={() => setActiveOption(1)} isDisabled={activeOption === 2} isActive={activeOption === 1} src={'/images/point.png'} />
+          <ButtonOption onClick={() => setActiveOption(2)} isDisabled={activeOption === 1} isActive={activeOption === 2} src={'/images/line.png'} />
+          <ButtonOption onClick={() => reset()} txt={"Reset"} />
+
         </Flex>
+
       </div>
       <Drawer onClose={onClose} isOpen={isOpen} size={"md"} closeOnOverlayClick={false}>
         <DrawerOverlay />
         <DrawerContent zIndex="111111">
           <DrawerCloseButton onClick={() => handleClose()} />
-          <DrawerHeader>{`Report`}</DrawerHeader>
+          <DrawerHeader fontFamily="bold">Relatório</DrawerHeader>
           <DrawerBody>
+
+
+            <Flex>
+              <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+                <FormControl id="checkboxGroup">
+                  <FormLabel>Selecione as camadas de informação para incluir no relatório:</FormLabel>
+                  <CheckboxGroup value={selectedOptions} onChange={handleCheckboxChange}>
+                    <Stack spacing={3} direction="column">
+                      <Checkbox value="shp">Espécies presentes na área</Checkbox>
+                      <Checkbox value="raster">Valor de índice de raridade de espécies</Checkbox>
+                    </Stack>
+                  </CheckboxGroup>
+                </FormControl>
+                <Button
+                  mt={"40px"}
+                  w="100%"
+                  bg="darkGreen"
+                  type="submit"
+                  borderRadius="0"
+                  color="white"
+                  _hover={{
+                    bg: "selectedGreen"
+                  }}
+                  isDisabled={selectedOptions.length === 0}
+                >
+                  Avançar
+                </Button>
+              </form>
+            </Flex>
+
             <Flex display={isLoading ? "flex" : "none"} w="100%" h="200px" align="center" justify="center">
               <Spinner h="50px" w="50px" color="green" />
             </Flex>
             {/* {!isLoading && data.map((item) => (
               <li key={item.id}>{item.sci_name}</li>
             ))} */}
-            {!isLoading && activeOption == 1 && data.map((item) => (
+            {!isLoading && activeOption == 1 && data["getRaster"].map((item) => (
               <Text key={item.id}>{item.valor_raster}</Text>
             ))}
             {!isLoading && activeOption == 2 && (
