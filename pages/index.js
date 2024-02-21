@@ -69,6 +69,7 @@ export default function Home() {
   const handleClose = () => {
     onClose()
     reset()
+
   };
 
   async function fetchData(endpoint) {
@@ -91,13 +92,13 @@ export default function Home() {
 
 
       if (response.ok) {
-        const responseDataObj = {}
 
         const result = await response.json();
-        responseDataObj[endpoint] = result
 
-        setData(responseDataObj);
-        console.log(responseDataObj)
+        setData(prevState => ({
+          ...prevState, // Mantenha as entradas existentes
+          [endpoint]: result // Adicione a nova entrada
+        }));
       } else {
         console.error('Erro na resposta da API:', response.status);
       }
@@ -131,6 +132,9 @@ export default function Home() {
     setPoint({ x: null, y: null })
     setLine1({ x: null, y: null })
     setLine2({ x: null, y: null })
+
+    setData({})
+    setReportState(0)
   }
 
   function calculateMean(values) {
@@ -178,13 +182,22 @@ export default function Home() {
 
   const [selectedOptions, setSelectedOptions] = useState([]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Opções selecionadas:", selectedOptions);
-    setReportState(1)
+
     if (selectedOptions.includes("shp")) {
-      fetchData("getSpecies")
+      console.log("aqui")
+      await fetchData("getSpecies")
+      console.log(data)
     }
+    if (selectedOptions.includes("raster")) {
+      console.log("aqui")
+      await fetchData("getRaster")
+      console.log(data)
+    }
+
+    setReportState(2)
   };
 
   const handleCheckboxChange = (newSelectedOptions) => {
@@ -223,7 +236,7 @@ export default function Home() {
           <DrawerBody>
 
 
-            <Flex>
+            <Flex display={reportState == 0 ? "flex" : "none"}>
               <form onSubmit={handleSubmit} style={{ width: '100%' }}>
                 <FormControl id="checkboxGroup">
                   <FormLabel>Selecione as camadas de informação para incluir no relatório:</FormLabel>
@@ -254,19 +267,22 @@ export default function Home() {
             <Flex display={isLoading ? "flex" : "none"} w="100%" h="200px" align="center" justify="center">
               <Spinner h="50px" w="50px" color="green" />
             </Flex>
-            {/* {!isLoading && data.map((item) => (
+            {!isLoading && reportState == 2 && selectedOptions.includes("shp") && data["getSpecies"].map((item) => (
               <li key={item.id}>{item.sci_name}</li>
-            ))} */}
-            {!isLoading && activeOption == 1 && data["getRaster"].map((item) => (
-              <Text key={item.id}>{item.valor_raster}</Text>
             ))}
-            {!isLoading && activeOption == 2 && (
+
+            <Flex w="100%" h="1px" bg="gray.300" mt="20px" mb="20px" />
+
+            {!isLoading && reportState == 2 && selectedOptions.includes("raster") && activeOption == 1 && data && data["getRaster"].map((item) => (
+              <Text key={item.id}>Valor do indice de raridade: {item.valor_raster}</Text>
+            ))}
+            {!isLoading && reportState == 2 && selectedOptions.includes("raster") && activeOption == 2 && (
               <>
-                <Text>Media: {calculateMean(data.map(item => item.val)).toFixed(2)}</Text>
-                <Text>Mediana: {calculateMedian(data.map(item => item.val)).toFixed(2)}</Text>
-                <Text>Variancia: {calculateVariance(data.map(item => item.val)).toFixed(2)}</Text>
-                <Text mb="30px">Desvio padrão: {calculateStandardDeviation(data.map(item => item.val)).toFixed(2)}</Text>
-                {data.map((item) => (
+                <Text>Media: {calculateMean(data["getRaster"].map(item => item.val)).toFixed(2)}</Text>
+                <Text>Mediana: {calculateMedian(data["getRaster"].map(item => item.val)).toFixed(2)}</Text>
+                <Text>Variancia: {calculateVariance(data["getRaster"].map(item => item.val)).toFixed(2)}</Text>
+                <Text mb="30px">Desvio padrão: {calculateStandardDeviation(data["getRaster"].map(item => item.val)).toFixed(2)}</Text>
+                {data["getRaster"].map((item) => (
                   <Text key={item.id}>{item.val}</Text>
                 ))}
               </>
