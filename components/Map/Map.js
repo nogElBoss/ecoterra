@@ -24,7 +24,7 @@ function Map({ onCoordinatesChange, isPointActive, markerPosition, markerPositio
         <MapContainer className={style.map} center={[-20.67390526467283, -54.62402343750001]} zoom={7} scrollWheelZoom={true} zoomControl={false}>
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiZ24xNjEwIiwiYSI6ImNsbnJvY3UwczFlZ3QycXM2aWVqemVqaDMifQ.k9BgfJBMu8xmoywb-mWbpg"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapEvents onCoordinatesChange={onCoordinatesChange} />
             {isPointActive && markerPosition && (

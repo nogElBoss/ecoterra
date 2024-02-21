@@ -187,14 +187,36 @@ export default function Home() {
     console.log("Opções selecionadas:", selectedOptions);
 
     if (selectedOptions.includes("shp")) {
-      console.log("aqui")
       await fetchData("getSpecies")
       console.log(data)
     }
     if (selectedOptions.includes("raster")) {
-      console.log("aqui")
       await fetchData("getRaster")
       console.log(data)
+    }
+    if (selectedOptions.includes("streets")) {
+      await fetch("https://overpass-api.de/api/interpreter",
+        {
+          method: 'POST',
+          body:
+            `[out:json];
+            way["highway"](around:1000, ${point.y}, ${point.x});
+            out body;`
+        }
+      )
+        .then(response => response.json())
+        .then(data => {
+          // Manipule os dados retornados conforme necessário
+          console.log(data.elements);
+          setData(prevState => ({
+            ...prevState, // Mantenha as entradas existentes
+            ["getStreets"]: data.elements // Adicione a nova entrada
+          }));
+        })
+        .catch(error => {
+          console.error('Erro ao fazer a solicitação:', error);
+        });
+      console.log("aqui")
     }
 
     setReportState(2)
@@ -204,6 +226,21 @@ export default function Home() {
     setSelectedOptions(newSelectedOptions);
   };
 
+  // Armazena os nomes únicos das estradas
+  const uniqueStreetNamesOrRefs = new Set();
+
+  // Adiciona os nomes únicos das estradas ou referências ao conjunto
+  if (!isLoading && reportState === 2 && selectedOptions.includes("streets")) {
+    data["getStreets"].forEach((item) => {
+      if (item.tags && item.tags.highway) {
+        if (item.tags.name) {
+          uniqueStreetNamesOrRefs.add(item.tags.name);
+        } else if (item.tags.ref) {
+          uniqueStreetNamesOrRefs.add(item.tags.ref);
+        }
+      }
+    });
+  }
 
   return (
     <>
@@ -244,6 +281,7 @@ export default function Home() {
                     <Stack spacing={3} direction="column">
                       <Checkbox value="shp">Espécies presentes na área</Checkbox>
                       <Checkbox value="raster">Valor de índice de raridade de espécies</Checkbox>
+                      <Checkbox value="streets">Estradas existentes na área</Checkbox>
                     </Stack>
                   </CheckboxGroup>
                 </FormControl>
@@ -267,12 +305,13 @@ export default function Home() {
             <Flex display={isLoading ? "flex" : "none"} w="100%" h="200px" align="center" justify="center">
               <Spinner h="50px" w="50px" color="green" />
             </Flex>
+
+            {/* ESPECIES */}
             {!isLoading && reportState == 2 && selectedOptions.includes("shp") && data["getSpecies"].map((item) => (
-              <li key={item.id}>{item.sci_name}</li>
+              <Text key={item.id}>{item.sci_name}</Text>
             ))}
 
-            <Flex w="100%" h="1px" bg="gray.300" mt="20px" mb="20px" />
-
+            {/* RARIDADE */}
             {!isLoading && reportState == 2 && selectedOptions.includes("raster") && activeOption == 1 && data && data["getRaster"].map((item) => (
               <Text key={item.id}>Valor do indice de raridade: {item.valor_raster}</Text>
             ))}
@@ -287,6 +326,15 @@ export default function Home() {
                 ))}
               </>
             )}
+
+            {/* ESTRADAS */}
+            {!isLoading && reportState === 2 && selectedOptions.includes("streets") && Array.from(uniqueStreetNamesOrRefs).map((nameOrRef) => (
+              <Text key={nameOrRef}>- {nameOrRef}</Text>
+            ))}
+
+
+
+
           </DrawerBody>
         </DrawerContent>
       </Drawer>
