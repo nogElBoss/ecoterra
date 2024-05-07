@@ -16,7 +16,8 @@ import {
   FormLabel,
   CheckboxGroup,
   Stack,
-  Checkbox
+  Checkbox,
+  Switch
 } from '@chakra-ui/react'
 import { useState, useEffect } from 'react';
 import Map from '@/components/Map'
@@ -29,17 +30,33 @@ export default function Home() {
   const [reportState, setReportState] = useState(0);
 
   const [isPointActive, setIsPointActive] = useState(false);
-  const [markerPosition, setMarkerPosition] = useState(null);
-  const [markerPosition2, setMarkerPosition2] = useState(null);
+  const [markers, setMarkers] = useState([]);
+  //const [markerPosition2, setMarkerPosition2] = useState(null);
+
 
   const [point, setPoint] = useState({ x: null, y: null })
 
   const [line1, setLine1] = useState({ x: null, y: null })
   const [line2, setLine2] = useState({ x: null, y: null })
+  const [segmentPoints, setSegmentPoints] = useState([]);
+
+  const [polygonPoints, setPolygonPoints] = useState([]);
+
 
   const [data, setData] = useState({});
 
+  const [streetsSpecies, setStreetsSpecies] = useState([])
+
   const [isLoading, setIsLoading] = useState(false)
+  const [showSatelite, setShowSatelite] = useState(false)
+
+  const [nodes, setNodes] = useState([])
+
+  const [showStreets, setShowStreets] = useState([])
+
+  const [activeFilters, setActiveFilters] = useState([])
+
+
 
   const handleCoordinatesChange = (lat, lng) => {
 
@@ -50,21 +67,69 @@ export default function Home() {
       if (activeOption == 1) {
         if (point && point.x == null && point.y == null) {
           setPoint({ x: lng, y: lat })
-          setMarkerPosition({ lat, lng });
+          //setMarkerPosition({ lat, lng });
+          addMarker(lat, lng)
         }
       }
       else if (activeOption == 2) {
-        if (line1.x == null && line1.y == null && line2.x == null && line2.y == null) {
+        /* if (line1.x == null && line1.y == null && line2.x == null && line2.y == null) {
           setLine1({ x: lng, y: lat })
           setMarkerPosition({ lat, lng });
         }
         else if (line1.x != null && line1.y != null && line2.x == null && line2.y == null) {
           setLine2({ x: lng, y: lat })
           setMarkerPosition2({ lat, lng });
-        }
+        } */
+        addSegmentPoint(lat, lng)
+        addMarker(lat, lng)
+
+      }
+      else if (activeOption === 3) {
+        addPolygonPoint(lat, lng);
+        addMarker(lat, lng)
       }
     }
   };
+
+  const handleDeleteMarker = () => {
+
+  }
+
+  const addPolygonPoint = (lat, lng) => {
+    setPolygonPoints(prevPoints => [...prevPoints, { lat, lng }]);
+
+  };
+
+  const addMarker = (lat, lng) => {
+    setMarkers(prevPoints => [...prevPoints, { lat, lng }]);
+    console.log(markers)
+  };
+
+  const deleteMarker = () => {
+    setMarkers(prevPoints => {
+      const updatedMarkers = [...prevPoints];
+      updatedMarkers.pop();
+      return updatedMarkers;
+    });
+    console.log(markers)
+  };
+
+  const addSegmentPoint = (lat, lng) => {
+    setSegmentPoints(prevPoints => [...prevPoints, { lat, lng }]);
+  };
+
+  const deleteSegmentPoint = () => {
+    setSegmentPoints(prevPoints => {
+      const updatedMarkers = [...prevPoints];
+      updatedMarkers.pop();
+      return updatedMarkers;
+    });
+  };
+
+  const handleDeletePoint = () => {
+    deleteSegmentPoint()
+    deleteMarker()
+  }
 
   const handleClose = () => {
     onClose()
@@ -84,8 +149,12 @@ export default function Home() {
       }
       else if (activeOption == 2) {
         setIsLoading(true)
-        response = await fetch(`/api/${endpoint}Line?l1x=${line1.x}&l1y=${line1.y}&l2x=${line2.x}&l2y=${line2.y}`, {
-          method: 'GET',
+        response = await fetch('/api/getSpeciesLineArray', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ points: segmentPoints })
         });
         setIsLoading(false)
       }
@@ -130,14 +199,20 @@ export default function Home() {
   const reset = () => {
     setActiveOption(0)
     setPoint({ x: null, y: null })
-    setLine1({ x: null, y: null })
-    setLine2({ x: null, y: null })
+    setPolygonPoints([])
+    setSegmentPoints([])
+    setMarkers([])
 
     setData({})
     setReportState(0)
+    setStreetsSpecies([])
+
+    setSelectedOptions([])
+    setActiveFilters([])
+    setShowStreets([])
   }
 
-  function calculateMean(values) {
+  function calculahandlteMean(values) {
     const filteredValues = values.filter(value => value !== null);
     if (filteredValues.length === 0) return 0;
     const sum = filteredValues.reduce((acc, value) => acc + value, 0);
@@ -195,39 +270,45 @@ export default function Home() {
       console.log(data)
     }
     if (selectedOptions.includes("streets")) {
-      await fetch("https://overpass-api.de/api/interpreter",
-        {
-          method: 'POST',
-          body:
-            `[out:json];
-            way["highway"](around:1000, ${point.y}, ${point.x});
-            out body;`
-        }
-      )
+      setIsLoading(true)
+      console.log(polygonPoints)
+      const polygonCoordinates = polygonPoints.map(point => `${point.lat} ${point.lng}`).join(' ');
+      const overpassQuery = `[out:json];
+                             way(poly:"${polygonCoordinates}");
+                             out body;`;
+
+      await fetch("https://overpass-api.de/api/interpreter", {
+        method: 'POST',
+        body: overpassQuery
+      })
         .then(response => response.json())
         .then(data => {
-          // Manipule os dados retornados conforme necessário
           console.log(data.elements);
           setData(prevState => ({
-            ...prevState, // Mantenha as entradas existentes
-            ["getStreets"]: data.elements // Adicione a nova entrada
+            ...prevState,
+            ["getStreets"]: data.elements
+
           }));
+          setIsLoading(false)
         })
         .catch(error => {
           console.error('Erro ao fazer a solicitação:', error);
+          setIsLoading(false)
         });
-      console.log("aqui")
     }
+
 
     setReportState(2)
   };
 
   const handleCheckboxChange = (newSelectedOptions) => {
     setSelectedOptions(newSelectedOptions);
+    console.log(selectedOptions)
   };
 
   // Armazena os nomes únicos das estradas
   const uniqueStreetNamesOrRefs = new Set();
+  const filters = new Set();
 
   // Adiciona os nomes únicos das estradas ou referências ao conjunto
   if (!isLoading && reportState === 2 && selectedOptions.includes("streets")) {
@@ -235,17 +316,158 @@ export default function Home() {
       if (item.tags && item.tags.highway) {
         if (item.tags.name) {
           uniqueStreetNamesOrRefs.add(item.tags.name);
+          filters.add(item.tags.highway)
+
         } else if (item.tags.ref) {
           uniqueStreetNamesOrRefs.add(item.tags.ref);
+          filters.add(item.tags.highway)
         }
       }
     });
+    console.log(filters)
   }
+
+
+  const handleFilterChange = async (newActiveFilters) => {
+    console.log("aqui")
+    await setActiveFilters(newActiveFilters);
+    refreshStreets(newActiveFilters)
+  };
+
+  const refreshStreets = (newActiveFilters) => {
+    console.log(newActiveFilters)
+    setIsLoading(true)
+
+    setShowStreets([])
+    data["getStreets"].forEach((street) => {
+      const highway = street.tags?.highway
+      if (newActiveFilters.includes(highway)) {
+        setShowStreets(prevStreets => [...prevStreets, street.tags.ref ? street.tags.ref : street.tags.name])
+      }
+
+    })
+
+    setIsLoading(false)
+
+  }
+
+  const processStreetNodes = (name) => {
+    let coordinatesRetrieved = false; // Variável de controle para verificar se as coordenadas já foram recuperadas
+
+    data["getStreets"].forEach((item) => {
+      if (item.tags && item.tags.highway) {
+        if (item.tags.name) {
+          if (item.tags.name == name && !coordinatesRetrieved) {
+            coordinatesRetrieved = true; // Defina como true para evitar chamadas repetidas
+            getCoordinatesForNodes(item.id);
+          }
+        } else if (item.tags.ref) {
+          if (item.tags.ref == name && !coordinatesRetrieved) {
+            coordinatesRetrieved = true; // Defina como true para evitar chamadas repetidas
+            console.log("teste");
+            getCoordinatesForNodes(item.id);
+          }
+        }
+      }
+    });
+  };
+
+  async function getCoordinatesForNodes(wayId) {
+    setIsLoading(true)
+    const coordinates = [];
+
+    // Construa a consulta Overpass para obter as coordenadas dos nós da way especificada
+    const query =
+      `[out:json];
+      way(${wayId});
+      node(w);
+      out;`;
+
+    try {
+      // Faça uma solicitação para a API Overpass
+      const response = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: query
+      });
+
+      // Verifique se a resposta é bem-sucedida
+      if (!response.ok) {
+        throw new Error("Erro ao fazer a solicitação à API Overpass");
+      }
+
+      // Analise a resposta JSON
+      const dataHere = await response.json();
+
+
+
+      data["getStreets"].forEach((street) => {
+        if (street.id == wayId) {
+          console.log(street.nodes)
+          const nodes = street.nodes
+          nodes.forEach((node) => {
+            dataHere.elements.forEach((element) => {
+              if (element.type === "node" && element.id == node) {
+                const { lat, lon } = element;
+                addSegmentPoint(lat, lon)
+                addMarker(lat, lon)
+                coordinates.push({ lat, lon });
+              }
+            });
+          })
+        }
+      })
+
+      // Extraia as coordenadas de cada node da resposta
+
+      console.log(coordinates)
+
+
+      chamarEndpoint(coordinates)
+    } catch (error) {
+      setIsLoading(false)
+      console.error("Erro ao obter as coordenadas dos nodes:", error);
+      return [];
+    }
+  }
+
+
+  async function chamarEndpoint(points) {
+    try {
+      const response = await fetch('/api/getSpeciesLineArray', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ points: points })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao chamar o endpoint: ' + response.statusText);
+      }
+
+      const data = await response.json();
+      setStreetsSpecies(data)
+      console.log(data);
+      setIsLoading(false)
+    } catch (error) {
+      setIsLoading(false)
+      console.error('Erro ao chamar o endpoint:', error);
+      throw error; // Propaga o erro para quem chamou a função
+    }
+  }
+
 
   return (
     <>
       <div>
-        <Map onCoordinatesChange={handleCoordinatesChange} markerPosition={markerPosition} markerPosition2={markerPosition2} isPointActive={activeOption == 1 && point && point.x != null && point.y != null} isPoint1Active={line1.x != null && line1.y != null} isPoint2Active={line2.x != null && line2.y != null} />
+        <Map
+          onCoordinatesChange={handleCoordinatesChange}
+          markers={markers}
+          polygonPoints={polygonPoints}
+          segmentPoints={segmentPoints}
+          activeOption={activeOption}
+          showSatelliteLayer={showSatelite}
+        />
         <Flex
           display={isOpen ? "none" : "flex"}
           position="absolute"
@@ -258,15 +480,113 @@ export default function Home() {
           direction="column"
         >
 
-          <ButtonOption onClick={() => setActiveOption(1)} isDisabled={activeOption === 2} isActive={activeOption === 1} src={'/images/point.png'} />
-          <ButtonOption onClick={() => setActiveOption(2)} isDisabled={activeOption === 1} isActive={activeOption === 2} src={'/images/line.png'} />
+          <ButtonOption onClick={() => setActiveOption(1)} isDisabled={activeOption != 1 && activeOption != 0} isActive={activeOption === 1} src={'/images/point.png'} />
+
+          <Flex position="relative">
+            <ButtonOption onClick={() => setActiveOption(2)} isDisabled={activeOption != 2 && activeOption != 0} isActive={activeOption === 2} src={'/images/line.png'} />
+            <Flex
+              top="5px"
+              left="110px"
+              position="absolute"
+              direction="column"
+              gap="10px"
+            >
+              <Button
+                display={activeOption == 2 ? "flex" : "none"}
+
+                onClick={onOpen}
+                isDisabled={segmentPoints.length < 2}
+                w="100px"
+                h={"40px"}
+                bg={"darkGreen"}
+                borderRadius={0}
+                color={"white"}
+                fontSize="20px"
+                _active={
+                  { background: "selectedGreen" }
+                }
+                _hover={
+                  { background: "selectedGreen" }
+                }
+              >
+                Concluir
+              </Button>
+              <Button
+                display={activeOption == 2 ? "flex" : "none"}
+                onClick={handleDeletePoint}
+                isDisabled={segmentPoints.length < 1}
+                w="230px"
+                h={"40px"}
+                bg={"darkGreen"}
+                borderRadius={0}
+                color={"white"}
+                fontSize="20px"
+                _active={
+                  { background: "selectedGreen" }
+                }
+                _hover={
+                  { background: "selectedGreen" }
+                }
+              >
+                Apagar ultimo ponto
+              </Button>
+            </Flex>
+
+          </Flex>
+
+
+
+          <Flex position="relative">
+            <ButtonOption onClick={() => setActiveOption(3)} isDisabled={activeOption != 3 && activeOption != 0} isActive={activeOption === 3} src={'/images/poly.png'} />
+            <Button
+              display={activeOption == 3 ? "flex" : "none"}
+              top="30px"
+              left="110px"
+              position="absolute"
+              onClick={onOpen}
+              isDisabled={polygonPoints.length < 3}
+              w="100px"
+              h={"40px"}
+              bg={"darkGreen"}
+              borderRadius={0}
+              color={"white"}
+              fontSize="20px"
+              _active={
+                { background: "selectedGreen" }
+              }
+              _hover={
+                { background: "selectedGreen" }
+              }
+            >
+              Concluir
+            </Button>
+          </Flex>
+
           <ButtonOption onClick={() => reset()} txt={"Reset"} />
+
+        </Flex>
+
+        <Flex
+
+          position="absolute"
+          bottom="50px"
+          right="30px"
+          h="fit-content"
+          zIndex="5000"
+          align={"center"}
+          justify={"center"}
+          bg="darkGreen"
+          px="20px"
+          py="5px"
+          gap="10px"
+        >
+          <Text fontSize="25px" fontWeight="bold" color="white">Satélite:</Text>
+          <Switch onChange={() => setShowSatelite(!showSatelite)} size='md' />
 
         </Flex>
 
       </div>
       <Drawer onClose={onClose} isOpen={isOpen} size={"md"} closeOnOverlayClick={false}>
-        <DrawerOverlay />
         <DrawerContent zIndex="111111">
           <DrawerCloseButton onClick={() => handleClose()} />
           <DrawerHeader fontFamily="bold">Relatório</DrawerHeader>
@@ -279,9 +599,17 @@ export default function Home() {
                   <FormLabel>Selecione as camadas de informação para incluir no relatório:</FormLabel>
                   <CheckboxGroup value={selectedOptions} onChange={handleCheckboxChange}>
                     <Stack spacing={3} direction="column">
-                      <Checkbox value="shp">Espécies presentes na área</Checkbox>
-                      <Checkbox value="raster">Valor de índice de raridade de espécies</Checkbox>
-                      <Checkbox value="streets">Estradas existentes na área</Checkbox>
+                      {[1, 2].includes(activeOption) &&
+                        <Checkbox value="shp">Espécies presentes na área</Checkbox>
+                      }
+
+                      {[1, 2].includes(activeOption) &&
+                        <Checkbox value="raster">Valor de índice de raridade de espécies</Checkbox>
+                      }
+
+                      {[3].includes(activeOption) &&
+                        <Checkbox value="streets">Estradas existentes na área</Checkbox>
+                      }
                     </Stack>
                   </CheckboxGroup>
                 </FormControl>
@@ -315,7 +643,7 @@ export default function Home() {
             {!isLoading && reportState == 2 && selectedOptions.includes("raster") && activeOption == 1 && data && data["getRaster"].map((item) => (
               <Text key={item.id}>Valor do indice de raridade: {item.valor_raster}</Text>
             ))}
-            {!isLoading && reportState == 2 && selectedOptions.includes("raster") && activeOption == 2 && (
+            {!isLoading && reportState == 2 && selectedOptions.includes("raster") && data["getStreets"] && activeOption == 2 && (
               <>
                 <Text>Media: {calculateMean(data["getRaster"].map(item => item.val)).toFixed(2)}</Text>
                 <Text>Mediana: {calculateMedian(data["getRaster"].map(item => item.val)).toFixed(2)}</Text>
@@ -328,8 +656,19 @@ export default function Home() {
             )}
 
             {/* ESTRADAS */}
-            {!isLoading && reportState === 2 && selectedOptions.includes("streets") && Array.from(uniqueStreetNamesOrRefs).map((nameOrRef) => (
-              <Text key={nameOrRef}>- {nameOrRef}</Text>
+            <CheckboxGroup value={activeFilters} onChange={handleFilterChange}>
+              <Stack spacing={3} direction="column">
+                {!isLoading && reportState === 2 && selectedOptions.includes("streets") && streetsSpecies.length == 0 && Array.from(filters).map((filter) => (
+                  <Checkbox value={filter}>{filter}</Checkbox>
+                ))}
+              </Stack>
+            </CheckboxGroup>
+
+            {!isLoading && reportState === 2 && selectedOptions.includes("streets") && streetsSpecies.length == 0 && showStreets.map((nameOrRef) => (
+              <Text key={nameOrRef} onClick={() => processStreetNodes(nameOrRef)}>- {nameOrRef}</Text>
+            ))}
+            {!isLoading && reportState === 2 && selectedOptions.includes("streets") && streetsSpecies.length > 0 && streetsSpecies.map((specie) => (
+              <Text>- {specie.sci_name}</Text>
             ))}
 
 

@@ -3,7 +3,7 @@ import db from '../../db/db';
 export default async function handler(req, res) {
     const { l1x, l1y, l2x, l2y } = req.query;
     try {
-        const query = 'SELECT sci_name FROM data_0 WHERE ST_Intersects(ST_SetSRID(ST_MakeLine(ST_MakePoint($1, $2),ST_MakePoint($3, $4)), 4326), geom);';
+        const query = 'SELECT DISTINCT sci_name FROM data_0 WHERE ST_Intersects(ST_SetSRID(ST_MakeLine(ST_MakePoint($1, $2),ST_MakePoint($3, $4)), 4326), geom);';
         const result = await db.query(query, [l1x, l1y, l2x, l2y]);
         const data = result.rows;
 
