@@ -22,6 +22,7 @@ import {
 import { useState, useEffect } from 'react';
 import Map from '@/components/Map'
 import ButtonOption from "@/components/ButtomOption"
+import Ruler from "@/components/Ruler"
 
 export default function Home() {
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -677,6 +678,10 @@ export default function Home() {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+      <Flex w="100vw" justify="center">
+        <Ruler maximo={2} minimo={0} valor={1} />
+      </Flex>
+
     </>
   )
 }
