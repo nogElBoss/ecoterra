@@ -4,6 +4,7 @@ import { ChakraProvider } from '@chakra-ui/react'
 import Fonts from '../themes/fonts'
 import theme from '../themes/theme'
 import Header from "@/components/Header/index"
+import './styles.css'
 
 export default function App({ Component, pageProps }) {
   return (
